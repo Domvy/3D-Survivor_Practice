@@ -1,7 +1,9 @@
 using System.Collections;
 using UnityEngine;
+using Photon.Pun;
+using UnityEngine.Splines;
 
-public class Gun : MonoBehaviour
+public class Gun : MonoBehaviourPun, IPunObservable
 {
     public enum State // 총 상태
     {
@@ -52,8 +54,19 @@ public class Gun : MonoBehaviour
     }
     private void Shot()
     {
+        photonView.RPC("ShotProcessOnServer", RpcTarget.MasterClient); // 사격 처리는 호스트가 담당
+        
+        magAmmo--;
+        if (magAmmo <= 0)
+        {
+            state = State.Empty; // 재장전을 위해 비어있는 상태로 변경
+        }
+    }
+    [PunRPC]
+    private void ShotProcessOnServer()
+    {
         RaycastHit hit;
-        Vector3 hitposition = Vector3.zero;
+        Vector3 hitPosition = Vector3.zero;
 
         if (Physics.Raycast(fireTransform.position, fireTransform.forward, out hit, fireDistance))
         {
@@ -62,19 +75,40 @@ public class Gun : MonoBehaviour
             {
                 target.OnDamage(gunData.damage, hit.point, hit.normal); // 충돌 오브젝트에 데미지 처리
             }
-            hitposition = hit.point; // 위치 저장
+            hitPosition = hit.point; // 위치 저장
         }
         else
         {
-            hitposition = fireTransform.position + fireTransform.forward * fireDistance; // 충돌 실패 시 최대사거리로 계산
+            hitPosition = fireTransform.position + fireTransform.forward * fireDistance; // 충돌 실패 시 최대사거리로 계산
         }
 
-        StartCoroutine(ShotEffect(hitposition)); // 이펙트 출력
-        magAmmo--;
-        if (magAmmo <= 0)
+        photonView.RPC("ShotEffectProcessOnClients", RpcTarget.All, hitPosition); // 모든 클라이언트가 이펙트 실행
+    }
+    [PunRPC]
+    private void ShotEffectProcessOnClients(Vector3 hitPosition) // 이펙트 출력
+    {
+        StartCoroutine(ShotEffect(hitPosition)); 
+    }
+
+    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info) // 데이터 동기화
+    {
+        if (stream.IsWriting) // 로컬 플레이어 일 때 데이터 보냄
         {
-            state = State.Empty; // 재장전을 위해 비어있는 상태로 변경
+            stream.SendNext(ammoRemain);
+            stream.SendNext(magAmmo);
+            stream.SendNext(state);
         }
+        else // 데이터 받음
+        {
+            ammoRemain = (int)stream.ReceiveNext();
+            magAmmo = (int)stream.ReceiveNext();
+            state = (State)stream.ReceiveNext();
+        }
+    }
+    [PunRPC]
+    public void AddAmmo(int ammo) // 리모트 클라이언트 탄환 증가용 함수(아이템 사용 시)
+    {
+        ammoRemain += ammo;
     }
 
     private IEnumerator ShotEffect(Vector3 hitPosition) // 사격 궤적 그리기

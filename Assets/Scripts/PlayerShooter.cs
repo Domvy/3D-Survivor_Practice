@@ -1,6 +1,7 @@
 using UnityEngine;
+using Photon.Pun;
 
-public class PlayerShooter : MonoBehaviour
+public class PlayerShooter : MonoBehaviourPun
 {
     public Gun gun; // 총 오브젝트
     public Transform gunPivot; // 기준 위치
@@ -24,6 +25,8 @@ public class PlayerShooter : MonoBehaviour
     }
     void Update()
     {
+        if (!photonView.IsMine) return;
+
         if (playerInput.fire)
         {
             gun.Fire();

@@ -1,6 +1,7 @@
 using UnityEngine;
+using Photon.Pun;
 
-public class PlayerInput : MonoBehaviour
+public class PlayerInput : MonoBehaviourPun
 {
     public string moveAxisName = "Vertical";
     public string rotateAxisName = "Horizontal";
@@ -15,6 +16,8 @@ public class PlayerInput : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (!photonView.IsMine) return; // 로컬 플레이어가 아닌 경우 바로 종료
+
         if (GameManager.instance != null && GameManager.instance.isGameOver)
         {
             move = 0;
