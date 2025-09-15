@@ -1,7 +1,9 @@
 using UnityEngine;
 using UnityEngine.AI;
+using Photon.Pun;
+using System.Collections;
 
-public class ItemSpawner : MonoBehaviour
+public class ItemSpawner : MonoBehaviourPun
 {
     public GameObject[] items; // 아이템 리스트
     public Transform playerTransform; // 플레이어 위치
@@ -20,6 +22,8 @@ public class ItemSpawner : MonoBehaviour
     }
     private void Update()
     {
+        if (!PhotonNetwork.IsMasterClient) return; // 호스트만 아이템 생성
+
         if (Time.time >= lastSpawnTime + timeBetSpawn && playerTransform != null)
         {
             lastSpawnTime = Time.time;
@@ -30,13 +34,22 @@ public class ItemSpawner : MonoBehaviour
 
     private void Spawn()
     {
-        // 플레이어 근처 위치 랜덤으로 가져오기
-        Vector3 spawnPosition = GetRandomPointOnNavMesh(playerTransform.position, maxDistance);
+        // 플레이어 근처 위치 랜덤으로 가져오기 => (0,0,0) 기준으로 변경
+        Vector3 spawnPosition = GetRandomPointOnNavMesh(Vector3.zero, maxDistance);
         spawnPosition += Vector3.up * 0.5f; // 바닥에서 살짝 뜨게
         GameObject selectedItem = items[Random.Range(0, items.Length)]; // 생성할 아이템 선택
-        GameObject item = Instantiate(selectedItem, spawnPosition, Quaternion.identity); // 아이템 생성
+        GameObject item = PhotonNetwork.Instantiate(selectedItem.name, spawnPosition, Quaternion.identity); // 아이템 생성
 
-        Destroy(item, 5f); // 획득하지 못할 시 파괴
+        StartCoroutine(DestroyAfter(item, 5f)); // PhotonNetwork의 Destroy는 지연시간을 받지 못하므로 코루틴으로 변경
+    }
+
+    IEnumerator DestroyAfter(GameObject target, float delay) // 아이템 파괴 코루틴
+    {
+        yield return new WaitForSeconds(delay);
+        if (target != null)
+        {
+            PhotonNetwork.Destroy(target);
+        }
     }
 
     private Vector3 GetRandomPointOnNavMesh(Vector3 center, float distance)

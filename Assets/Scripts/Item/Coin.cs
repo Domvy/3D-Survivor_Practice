@@ -1,12 +1,13 @@
 using UnityEngine;
+using Photon.Pun;
 
-public class Coin : MonoBehaviour, IItem
+public class Coin : MonoBehaviourPun, IItem
 {
     public int score = 200;
 
     public void Use(GameObject target)
     {
         GameManager.instance.AddScore(score);
-        Destroy(gameObject);
+        PhotonNetwork.Destroy(gameObject);
     }
 }

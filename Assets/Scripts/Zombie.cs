@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
+using Photon.Pun;
 
 
 public class Zombie : LivingEntity
@@ -42,20 +43,25 @@ public class Zombie : LivingEntity
     }
     private void Start()
     {
+        if (!PhotonNetwork.IsMasterClient) return; // 호스트만 실행
+
         StartCoroutine(UpdatePath());
     }
     private void Update()
     {
+        if (!PhotonNetwork.IsMasterClient) return;
+
         zombieAnimator.SetBool("HasTarget", hasTarget);
     }
-    
-    public void Setup(ZombieData zombieData)
+
+    [PunRPC]
+    public void Setup(float newHealth, float newDamage, float newSpeed, Color skinColor)
     {
-        startingHealth = zombieData.health; // 최대 체력
-        health = zombieData.health; // 현재 체력
-        damage = zombieData.damage; // 공격력
-        navMeshAgent.speed = zombieData.speed; // 이동속도
-        zombieRenderer.material.color = zombieData.skinColor; // 외형 색
+        startingHealth = newHealth; // 최대 체력
+        health = newHealth; // 현재 체력
+        damage = newDamage; // 공격력
+        navMeshAgent.speed = newSpeed; // 이동속도
+        zombieRenderer.material.color = skinColor; // 외형 색
     }
     public IEnumerator UpdatePath()
     {
@@ -85,6 +91,7 @@ public class Zombie : LivingEntity
             yield return new WaitForSeconds(0.25f);
         }
     }
+    [PunRPC]
     public override void OnDamage(float damage, Vector3 hitPoint, Vector3 hitNormal)
     {
         if (!dead) // 피격 이펙트 표현
@@ -115,6 +122,8 @@ public class Zombie : LivingEntity
 
     private void OnTriggerStay(Collider other)
     {
+        if (!PhotonNetwork.IsMasterClient) return;
+
         if (!dead && Time.time >= lastAttackTime + timeBetAttack)
         {
             LivingEntity attackTarget = other.GetComponent<LivingEntity>(); // 상대 오브젝트 타입 확인
